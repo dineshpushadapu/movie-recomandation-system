@@ -1,1 +1,5 @@
 config.py
+env/
+# Ignore Python cache files
+__pycache__/
+*.py[cod]   
