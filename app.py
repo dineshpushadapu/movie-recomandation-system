@@ -3,25 +3,27 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
-from config import TMDB_API_KEY  # Import the API key
+from config import TMDB_API_KEY, OMDB_API_KEY  # Import the API keys
 import time
 
-def fetch_poster(movie_id):
-    url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={TMDB_API_KEY}&language=en-US"
-    retries = 3
-    for i in range(retries):
-        try:
-            response = requests.get(url, timeout=5)
-            response.raise_for_status()
-            data = response.json()
-            poster_path = data.get('poster_path')
-            if poster_path:
-                return "https://image.tmdb.org/t/p/w500/" + poster_path
-            else:
-                return None
-        except requests.exceptions.RequestException as e:
-            print(f"Attempt {i+1} failed: {e}")
-            time.sleep(2)
+@st.cache_data  # Cache poster results to avoid repeated API calls
+def fetch_poster(movie_title):
+    url = f"http://www.omdbapi.com/?t={movie_title}&apikey={OMDB_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        poster = data.get('Poster')
+        if poster and poster != 'N/A':
+            return poster
+        else:
+            return None
+    except requests.exceptions.Timeout:
+        print(f"Timeout failed for {movie_title}")
+    except requests.exceptions.ConnectionError:
+        print(f"Connection error for {movie_title}")
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to fetch poster for {movie_title}: {e}")
     return None
 
 def recommend(movie):
@@ -30,9 +32,9 @@ def recommend(movie):
     recommended_movie_names = []
     recommended_movie_posters = []
     for i in distances[1:6]:
-        movie_id = movies.iloc[i[0]].movie_id
-        recommended_movie_posters.append(fetch_poster(movie_id))
-        recommended_movie_names.append(movies.iloc[i[0]].title)
+        movie_title = movies.iloc[i[0]].title
+        recommended_movie_posters.append(fetch_poster(movie_title))
+        recommended_movie_names.append(movie_title)
     return recommended_movie_names, recommended_movie_posters
 
 # Streamlit UI
@@ -87,3 +89,4 @@ if st.button('Show Recommendation'):
             st.image(recommended_movie_posters[4], width=250)
         else:
             st.warning("Image not available")
+
